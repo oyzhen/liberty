@@ -327,9 +327,12 @@ export default function Home() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     startGame(canvas, v => placeRef.current(v), setHover);
-    const unlock = () => audioRef.current?.unlock();
-    window.addEventListener("pointerdown", unlock, { once: true });
-    window.addEventListener("keydown", unlock, { once: true });
+    const unlock = () => {
+      void audioRef.current?.unlock();
+    };
+    // Keep listening: mobile browsers may suspend audio again after backgrounding.
+    window.addEventListener("pointerdown", unlock, { passive: true });
+    window.addEventListener("keydown", unlock);
     return () => {
       stopGame();
       window.removeEventListener("pointerdown", unlock);
@@ -606,6 +609,25 @@ export default function Home() {
     URL.revokeObjectURL(url);
     notify("SGF 棋谱已导出");
   }, [mode, notify, reviewSource]);
+  const testAudio = useCallback(async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    let next = profileRef.current;
+    if (next.muted || next.volume === 0) {
+      next = { ...next, muted: false, volume: next.volume || .65 };
+      audio.setMuted(false);
+      audio.setVolume(next.volume);
+      setProfile(next);
+    }
+    const running = await audio.unlock();
+    if (!running) {
+      notify("浏览器尚未允许声音，请再次点击试听，并检查设备音量与静音开关");
+      return;
+    }
+    audio.startMusic();
+    audio.sfx("success");
+    notify("正在播放背景音乐与试听音效");
+  }, [notify, setProfile]);
   const askTutor = useCallback(
     async (question: string) => {
       const context = `${snapshot.size}路棋，第${snapshot.moves.length}手，${snapshot.turn === 1 ? "黑" : "白"}先。${mode === "campaign" ? `题目：${levelRef.current.objective}` : ""}`;
@@ -1175,6 +1197,7 @@ export default function Home() {
         notify={notify}
         persist={persist}
         askTutor={askTutor}
+        testAudio={testAudio}
       />
     </main>
   );
