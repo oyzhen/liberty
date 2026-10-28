@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import { GameLoop } from './engine'
 import type { GameSnapshot, Vertex, ViewMode } from './goTypes'
+
 interface SceneOptions { onPlace: (v: Vertex) => void; onHover: (v: Vertex | null) => void }
+const BOARD_SIZE = 10
 const BOARD_Y = .36
 const themeColors: Record<string, { wood: string; line: string; glow: string; ground: string }> = {
   ink: { wood: '#c59b62', line: '#392b23', glow: '#a8d8c5', ground: '#0b1a1b' },
@@ -18,6 +20,7 @@ const themeColors: Record<string, { wood: string; line: string; glow: string; gr
   golden: { wood: '#c3a158', line: '#3b2c13', glow: '#ffe29a', ground: '#211b0e' },
   sakura: { wood: '#d5aaa9', line: '#5c373e', glow: '#ffd1df', ground: '#281820' },
 }
+
 export class BoardScene {
   private renderer: THREE.WebGLRenderer
   private scene = new THREE.Scene()
@@ -33,6 +36,7 @@ export class BoardScene {
   private lastMarker: THREE.Mesh
   private hintMarker: THREE.Mesh
   private cursorMarker: THREE.Mesh
+  private targetMarkers = new THREE.Group()
   private particles: THREE.Points
   private loop: GameLoop
   private size = 9
@@ -59,6 +63,7 @@ export class BoardScene {
   private stoneGeometry = new THREE.SphereGeometry(.43, 24, 16)
   private blackMaterial: THREE.MeshStandardMaterial = new THREE.MeshPhysicalMaterial({ color: 0x111817, roughness: .22, metalness: .08, clearcoat: .7, clearcoatRoughness: .18 })
   private whiteMaterial: THREE.MeshStandardMaterial = new THREE.MeshPhysicalMaterial({ color: 0xf2eee3, roughness: .3, clearcoat: .45 })
+
   constructor(private canvas: HTMLCanvasElement, private options: SceneOptions) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' })
     const gl = this.renderer.getContext()
@@ -87,25 +92,30 @@ export class BoardScene {
     const rim = new THREE.DirectionalLight(0x8bd6ca, 1.5); rim.position.set(8, 6, -8); this.scene.add(rim)
     this.hoverStone = new THREE.Mesh(this.stoneGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: .36, depthWrite: false }))
     this.hoverStone.visible = false; this.scene.add(this.hoverStone)
-    this.lastMarker = new THREE.Mesh(new THREE.RingGeometry(.16, .22, 32), new THREE.MeshBasicMaterial({ color: 0xe6b86a, side: THREE.DoubleSide, depthTest: false }))
+    const ringGeo = new THREE.RingGeometry(.16, .22, 32)
+    this.lastMarker = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xe6b86a, side: THREE.DoubleSide, depthTest: false }))
     this.lastMarker.rotation.x = -Math.PI / 2; this.lastMarker.renderOrder = 8; this.lastMarker.visible = false; this.scene.add(this.lastMarker)
     this.hintMarker = new THREE.Mesh(new THREE.RingGeometry(.36, .43, 32), new THREE.MeshBasicMaterial({ color: 0x9fffd4, side: THREE.DoubleSide, transparent: true, opacity: .8, depthTest: false }))
     this.hintMarker.rotation.x = -Math.PI / 2; this.hintMarker.visible = false; this.hintMarker.renderOrder = 9; this.scene.add(this.hintMarker)
     this.cursorMarker = new THREE.Mesh(new THREE.RingGeometry(.46, .49, 4), new THREE.MeshBasicMaterial({ color: 0xf5d48d, side: THREE.DoubleSide, depthTest: false }))
     this.cursorMarker.rotation.x = -Math.PI / 2; this.cursorMarker.rotation.z = Math.PI / 4; this.cursorMarker.visible = false; this.cursorMarker.renderOrder = 9; this.scene.add(this.cursorMarker)
     this.particles = this.makeParticles(); this.particles.visible = !this.softwareRenderer; this.scene.add(this.particles)
-    this.createStones(); this.buildBoard(9); this.bindInput()
+    this.scene.add(this.targetMarkers)
+    this.createStones(); this.buildBoard(9)
+    this.bindInput()
     this.resizeObserver = new ResizeObserver(() => this.resize()); this.resizeObserver.observe(canvas.parentElement || canvas)
     this.resize()
     this.loop = new GameLoop({ update: dt => this.update(dt), render: () => this.render() })
     this.loop.start()
   }
+
   private makeParticles() {
     const positions = new Float32Array(54 * 3)
     for (let i = 0; i < 54; i++) { positions[i * 3] = Math.sin(i * 12.31) * 13; positions[i * 3 + 1] = (i % 9) * .75; positions[i * 3 + 2] = Math.cos(i * 7.17) * 13 }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
     return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xa9d6c2, size: .035, transparent: true, opacity: .35, depthWrite: false }))
   }
+
   private createStones() {
     this.blackStones = new THREE.InstancedMesh(this.stoneGeometry, this.blackMaterial, 361)
     this.whiteStones = new THREE.InstancedMesh(this.stoneGeometry, this.whiteMaterial, 361)
@@ -114,6 +124,7 @@ export class BoardScene {
     this.blackStones.count = 0; this.whiteStones.count = 0
     this.stoneGroup.add(this.blackStones, this.whiteStones)
   }
+
   private woodTexture(base: string) {
     const c = document.createElement('canvas'); c.width = 512; c.height = 512
     const ctx = c.getContext('2d')!; ctx.fillStyle = base; ctx.fillRect(0, 0, 512, 512)
@@ -126,6 +137,7 @@ export class BoardScene {
     const texture = new THREE.CanvasTexture(c); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4
     return texture
   }
+
   private buildBoard(size: number) {
     this.size = size; this.spacing = 8.8 / (size - 1)
     while (this.boardGroup.children.length) {
@@ -154,6 +166,7 @@ export class BoardScene {
     if (this.showCoordinates) this.addCoordinates(colors.line)
     this.hover = null; this.hint = null; this.cursor = null
   }
+
   private addCoordinates(color: string) {
     const letters = 'ABCDEFGHJKLMNOPQRST'
     for (let i = 0; i < this.size; i++) {
@@ -165,9 +178,11 @@ export class BoardScene {
       }
     }
   }
+
   private vertexPosition(v: Vertex, lift = 0) {
     return new THREE.Vector3(-4.4 + v[0] * this.spacing, BOARD_Y + lift, -4.4 + v[1] * this.spacing)
   }
+
   updateBoard(snapshot: GameSnapshot, theme = this.theme, view = this.view, coordinates = this.showCoordinates) {
     const rebuild = snapshot.size !== this.size || theme !== this.theme || coordinates !== this.showCoordinates
     this.theme = theme; this.showCoordinates = coordinates
@@ -191,6 +206,7 @@ export class BoardScene {
     if (snapshot.lastMove) { this.lastMarker.position.copy(this.vertexPosition(snapshot.lastMove, radius * .86 + .02)); this.lastMarker.scale.setScalar(radius / .43) }
     if (view !== this.view) this.setView(view)
   }
+
   setView(view: ViewMode) {
     this.view = view
     const fit = Math.max(1, 1.02 / Math.max(.45, this.camera.aspect))
@@ -201,7 +217,25 @@ export class BoardScene {
   setTheme(theme: string) { if (theme !== this.theme) { this.theme = theme; this.buildBoard(this.size); if (this.snapshot) this.updateBoard(this.snapshot, theme, this.view, this.showCoordinates) } }
   setHint(v: Vertex | null) { this.hint = v; this.hintMarker.visible = !!v; if (v) this.hintMarker.position.copy(this.vertexPosition(v, .12)) }
   setCursor(v: Vertex | null) { this.cursor = v; this.cursorMarker.visible = !!v; if (v) this.cursorMarker.position.copy(this.vertexPosition(v, .13)) }
+  setTargets(vertices: Vertex[]) {
+    while (this.targetMarkers.children.length) {
+      const marker = this.targetMarkers.children.pop() as THREE.Mesh
+      marker.geometry.dispose(); (marker.material as THREE.Material).dispose()
+    }
+    const radius = Math.min(.43, this.spacing * .46)
+    for (const vertex of vertices) {
+      const marker = new THREE.Mesh(
+        new THREE.RingGeometry(radius * 1.12, radius * 1.22, 32),
+        new THREE.MeshBasicMaterial({ color: 0xf0c979, side: THREE.DoubleSide, transparent: true, opacity: .8, depthTest: false })
+      )
+      marker.rotation.x = -Math.PI / 2
+      marker.position.copy(this.vertexPosition(vertex, .15))
+      marker.renderOrder = 7
+      this.targetMarkers.add(marker)
+    }
+  }
   setInteractive(value: boolean) { this.interactive = value; if (!value) this.hoverStone.visible = false }
+
   private update(dt: number) {
     this.elapsed += dt
     this.distance += (this.targetDistance - this.distance) * Math.min(1, dt * 8)
@@ -223,6 +257,7 @@ export class BoardScene {
     this.renderer.setSize(w, h, false); this.camera.aspect = w / Math.max(1, h); this.camera.updateProjectionMatrix()
     this.setView(this.view)
   }
+
   private pick(clientX: number, clientY: number): Vertex | null {
     const rect = this.canvas.getBoundingClientRect()
     this.pointer.set((clientX - rect.left) / rect.width * 2 - 1, -(clientY - rect.top) / rect.height * 2 + 1)
@@ -282,6 +317,7 @@ export class BoardScene {
   }
   private onPointerLeave = () => { if (!this.pointers.size) this.updateHover(null) }
   private onWheel = (e: WheelEvent) => { e.preventDefault(); this.targetDistance = THREE.MathUtils.clamp(this.targetDistance + e.deltaY * .008, 10, 23) }
+
   getPerformanceInfo() { return { x: this.cursor?.[0] ?? 0, z: this.cursor?.[1] ?? 0, calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, geometries: this.renderer.info.memory.geometries, quality: this.softwareRenderer ? 'compatibility' : 'full' } }
   projectVertex(v: Vertex) {
     const point = this.vertexPosition(v, .1).project(this.camera)
