@@ -998,3 +998,30 @@ export function TutorDock({
           </header>
           <p className="tutor-context">已结合当前局面 · {context}</p>
           <div className="tutor-answer">
+            {loading
+              ? "正在读局与思考…"
+              : answer ||
+                "你可以问：现在最该注意什么？这手为什么能提子？或“给新手一个建议”。"}
+          </div>
+          <div className="tutor-input">
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") submit();
+              }}
+              placeholder="问问这盘棋…"
+            />
+            <button onClick={submit} aria-label="发送">
+              <Send size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+      <button className="tutor-fab" onClick={() => setOpen(!open)}>
+        <MessageCircle size={18} />
+        <span>问 AI</span>
+      </button>
+    </div>
+  );
+}
