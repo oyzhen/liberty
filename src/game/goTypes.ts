@@ -2,7 +2,7 @@ export type Color = 1 | -1
 export type Vertex = [number, number]
 export type GameMode = 'campaign' | 'ai' | 'local' | 'review' | 'exam'
 export type ViewMode = '2d' | '2.5d' | '3d'
-export type GoalType = 'capture' | 'survive' | 'score'
+export type GoalType = 'capture' | 'survive' | 'connect' | 'double-atari' | 'cut' | 'net' | 'ladder' | 'make-eye' | 'break-eye' | 'throw-in' | 'snapback' | 'semeai' | 'score'
 
 export interface Move {
   color: Color
@@ -35,7 +35,10 @@ export interface Level {
   turn: Color
   setup: { x: number; y: number; color: Color }[]
   solution: Vertex
+  target?: Vertex[]
   goal: GoalType
+  technique: string
+  minCaptures?: number
   objective: string
   lesson: string
   hint: string

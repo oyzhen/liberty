@@ -83,6 +83,7 @@ export class GoGame {
     this.moves.push({ color, vertex, captured, coordinate: coords(vertex, this.size) })
     this.passes = 0
     this.turn = other(color)
+    if (this.board.signMap.every(row => row.every(sign => sign !== 0))) this.finish()
     return { ok: true, captured }
   }
 

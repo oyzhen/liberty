@@ -8,7 +8,7 @@ function mulberry32(seed: number) {
 export function chooseAiMove(game: GoGame, color: Color, strength = 2): Vertex | null {
   const size = game.size
   const random = mulberry32(game.moves.length * 997 + size * 37 + strength * 101)
-  const candidates: { v: Vertex; score: number }[] = []
+  const candidates: { v: Vertex; score: number; tactical: boolean; areaGain: number }[] = []
   const last = game.moves.at(-1)?.vertex
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const v: Vertex = [x, y]
@@ -39,14 +39,21 @@ export function chooseAiMove(game: GoGame, color: Color, strength = 2): Vertex |
       const center = (size - 1) / 2
       score -= (Math.abs(x - center) + Math.abs(y - center)) * .06
     }
-    if (strength >= 4) {
-      const before = scoreArea(game.board.signMap as any)
-      const after = scoreArea(clone.signMap as any)
-      score += color === 1 ? (after.black - before.black) * .8 : (after.white - before.white) * .8
-    }
-    candidates.push({ v, score })
+    const before = scoreArea(game.board.signMap as any)
+    const after = scoreArea(clone.signMap as any)
+    const areaGain = color === 1 ? after.black - before.black : after.white - before.white
+    if (strength >= 4) score += areaGain * .8
+    const savesAtari = neighbors.some(n => game.board.get(n) === color && game.board.getLiberties(n).length === 1)
+    const attacks = neighbors.some(n => game.board.get(n) === other(color) && game.board.getLiberties(n).length <= 2)
+    candidates.push({ v, score, tactical: captured > 0 || savesAtari || attacks, areaGain })
   }
   if (!candidates.length) return null
+  const stones = game.board.signMap.flat().filter(Boolean).length
+  if (stones / (size * size) > .45) {
+    const useful = candidates.filter(c => c.tactical || c.areaGain >= 0)
+    if (!useful.length || (game.moves.at(-1)?.vertex === null && useful.every(c => c.score < 5))) return null
+    candidates.splice(0, candidates.length, ...useful)
+  }
   candidates.sort((a, b) => b.score - a.score)
   const pool = Math.max(1, 6 - strength)
   return candidates[Math.floor(random() * Math.min(pool, candidates.length))].v

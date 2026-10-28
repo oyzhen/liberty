@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GoGame, scoreArea, toSgf } from './rules'
-import { getLevel } from './levels'
+import { getLevel, isLevelSolved } from './levels'
 import { chooseAiMove } from './ai'
 
 describe('Go rules', () => {
@@ -45,8 +45,7 @@ describe('1000 playable levels', () => {
       const game = new GoGame(level.size, level.setup, level.turn)
       const result = game.play(level.solution)
       expect(result.ok, `level ${id}: ${result.reason}`).toBe(true)
-      if (level.goal === 'capture') expect(result.captured, `level ${id}`).toBeGreaterThan(0)
-      else expect(game.board.getLiberties(level.setup[0] && [level.setup[0].x,level.setup[0].y]).length, `level ${id}`).toBeGreaterThan(1)
+      expect(isLevelSolved(level, game, level.solution, result.captured), `level ${id}: ${level.technique}`).toBe(true)
     }
   })
   it('AI only chooses legal moves', () => {
@@ -55,5 +54,18 @@ describe('1000 playable levels', () => {
     const move = chooseAiMove(game, -1, 3)
     expect(move).not.toBeNull()
     expect(game.play(move).ok).toBe(true)
+  })
+  it('AI passes and finishes when the board has no legal point', () => {
+    const setup = []
+    for(let y=0;y<9;y++)for(let x=0;x<9;x++)setup.push({x,y,color:(x+y)%2===0?1:-1 as 1|-1})
+    const game = new GoGame(9, setup, -1)
+    expect(chooseAiMove(game, -1, 3)).toBeNull()
+    game.play(null);game.play(null)
+    expect(game.over).toBe(true)
+    expect(game.result).toContain('目')
+  })
+  it('the opening curriculum introduces distinct mechanics', () => {
+    const techniques = Array.from({length:10},(_,i)=>getLevel(i+1).technique)
+    expect(new Set(techniques).size).toBeGreaterThanOrEqual(8)
   })
 })
