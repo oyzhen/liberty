@@ -1,12 +1,10 @@
 export type SfxId = 'stone' | 'capture' | 'success' | 'fail' | 'ui' | 'achievement' | 'feed'
-
 const SCALES: Record<string, number[]> = {
   guqin: [220, 246.94, 293.66, 329.63, 392, 440],
   rain: [261.63, 293.66, 349.23, 392, 440, 523.25],
   starlight: [196, 246.94, 293.66, 369.99, 440, 493.88],
   breeze: [174.61, 220, 261.63, 329.63, 349.23, 440],
 }
-
 export class AudioSystem {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
@@ -16,7 +14,6 @@ export class AudioSystem {
   volume = .65
   track = 'guqin'
   musicEnabled = true
-
   constructor(muted = false, volume = .65, track = 'guqin') { this.muted = muted; this.volume = volume; this.track = track }
   private ensure() {
     if (!this.ctx) {
@@ -35,7 +32,7 @@ export class AudioSystem {
   private tone(freq: number, duration: number, gain: number, type: OscillatorType = 'sine', delay = 0) {
     if (this.muted) return
     const ctx = this.ensure(), t = ctx.currentTime + delay
-    const osc = ctx.createOscillator(), amp = this.ctx.createGain()
+    const osc = ctx.createOscillator(), amp = ctx.createGain()
     osc.type = type; osc.frequency.setValueAtTime(freq, t)
     amp.gain.setValueAtTime(.0001, t); amp.gain.exponentialRampToValueAtTime(gain, t + .012); amp.gain.exponentialRampToValueAtTime(.0001, t + duration)
     osc.connect(amp).connect(this.master!); osc.start(t); osc.stop(t + duration + .03)
