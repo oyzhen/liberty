@@ -3,8 +3,6 @@ import { eq } from 'drizzle-orm'
 import { generateText } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createRouter, publicQuery } from './middleware'
-import { getDb } from './queries/connection'
-import { progress } from '@db/schema'
 import { listModels, classifyAiError, AiUnavailable, ContentRejected, AiMisconfigured } from './ai/client'
 
 export const appRouter = createRouter({
@@ -12,12 +10,16 @@ export const appRouter = createRouter({
   progress: createRouter({
     status: publicQuery.query(() => ({ available: Boolean(process.env.DATABASE_URL) })),
     load: publicQuery.input(z.object({ playerKey: z.string().min(8).max(128) })).query(async ({ input }) => {
+      if (!process.env.DATABASE_URL) throw new Error('Cloud save is not provisioned')
+      const [{ getDb }, { progress }] = await Promise.all([import('./queries/connection'), import('@db/schema')])
       const row = await getDb().query.progress.findFirst({ where: eq(progress.playerKey, input.playerKey) })
       return { data: row?.data ?? null, updatedAt: row?.updatedAt ?? null }
     }),
     save: publicQuery.input(z.object({ playerKey: z.string().min(8).max(128), data: z.string().min(2).max(2_000_000) })).mutation(async ({ input }) => {
+      if (!process.env.DATABASE_URL) throw new Error('Cloud save is not provisioned')
       const parsed = JSON.parse(input.data) as { version?: number; playerKey?: string }
       if (parsed.version !== 2 || parsed.playerKey !== input.playerKey) throw new Error('Invalid progress payload')
+      const [{ getDb }, { progress }] = await Promise.all([import('./queries/connection'), import('@db/schema')])
       await getDb().insert(progress).values(input).onDuplicateKeyUpdate({ set: { data: input.data, updatedAt: new Date() } })
       return { saved: true, updatedAt: new Date() }
     }),
