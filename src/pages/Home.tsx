@@ -397,7 +397,12 @@ export default function Home() {
           return;
         }
         audioRef.current?.sfx(move ? "stone" : "ui");
-        if (!move) notify(gameRef.current.over ? "双方连续停一手，开始数子" : "AI 停一手，轮到你行棋");
+        if (!move)
+          notify(
+            gameRef.current.over
+              ? "双方连续停一手，开始数子"
+              : "AI 停一手，轮到你行棋"
+          );
         setThinking(false);
         commit();
         if (gameRef.current.over) recordFinishedGame(gameRef.current.result);
@@ -620,7 +625,7 @@ export default function Home() {
     if (!audio) return;
     let next = profileRef.current;
     if (next.muted || next.volume === 0) {
-      next = { ...next, muted: false, volume: next.volume || .65 };
+      next = { ...next, muted: false, volume: next.volume || 0.65 };
       audio.setMuted(false);
       audio.setVolume(next.volume);
       setProfile(next);
@@ -1204,6 +1209,7 @@ export default function Home() {
         persist={persist}
         askTutor={askTutor}
         testAudio={testAudio}
+        sfx={id => audioRef.current?.sfx(id)}
       />
     </main>
   );
