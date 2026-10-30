@@ -125,6 +125,7 @@ export default function Home() {
   const recordedRef = useRef(false);
   const [hover, setHover] = useState<Vertex | null>(null);
   const [cursor, setCursor] = useState<Vertex>(initialLevel.solution);
+  const [cursorVisible, setCursorVisible] = useState(false);
   const [reviewSource, setReviewSource] = useState<ReviewSource | null>(null);
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewPlaying, setReviewPlaying] = useState(false);
@@ -185,6 +186,7 @@ export default function Home() {
       recordedRef.current = false;
       setReviewPlaying(false);
       setCursor(level.solution);
+      setCursorVisible(false);
       commit();
       setPanel(null);
       notify(`第 ${id} 关 · ${level.objective}`);
@@ -208,6 +210,7 @@ export default function Home() {
       setBoardHint(null);
       setReviewPlaying(false);
       setCursor([Math.floor(size / 2), Math.floor(size / 2)]);
+      setCursorVisible(false);
       commit();
       setPanel(null);
       notify(
@@ -358,11 +361,13 @@ export default function Home() {
     mode,
   ]);
   useEffect(() => {
-    setBoardCursor(cursor);
-  }, [cursor, snapshot.size]);
+    setBoardCursor(cursorVisible ? cursor : null);
+  }, [cursor, cursorVisible, snapshot.size]);
   useEffect(() => {
-    setBoardTargets(mode === "campaign" ? levelRef.current.target || [] : []);
-  }, [mode, levelId, snapshot.size]);
+    setBoardTargets(
+      mode === "campaign" && hintUsed ? levelRef.current.target || [] : []
+    );
+  }, [mode, levelId, snapshot.size, hintUsed]);
   useEffect(() => {
     const audio = audioRef.current;
     if (audio) {
@@ -484,6 +489,7 @@ export default function Home() {
       const size = gameRef.current.size;
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
         e.preventDefault();
+        setCursorVisible(true);
         setCursor(prev => {
           const next: [number, number] = [...prev];
           if (e.key === "ArrowLeft") next[0] = Math.max(0, next[0] - 1);
