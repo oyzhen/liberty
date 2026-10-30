@@ -10,7 +10,6 @@ import {
   Download,
   Play,
   Pause,
-  BookOpen,
   Sparkles,
   Cloud,
   RefreshCw,
@@ -25,8 +24,10 @@ import {
   Send,
 } from "lucide-react";
 import { ACHIEVEMENTS } from "@/game/achievements";
-import { CHAPTERS, LESSONS, getLevel } from "@/game/levels";
+import { CHAPTERS } from "@/game/levels";
 import type { Profile, ViewMode } from "@/game/goTypes";
+import type { SfxId } from "@/game/audio";
+import Academy from "@/components/Academy";
 
 export type PanelName =
   | "match"
@@ -63,6 +64,7 @@ interface PanelProps {
   persist: (p: Profile) => void;
   askTutor: (question: string) => Promise<string>;
   testAudio: () => void;
+  sfx: (id: SfxId) => void;
 }
 
 const themes = [
@@ -127,7 +129,6 @@ export default function Panels(props: PanelProps) {
   const [chapter, setChapter] = useState(
     Math.floor((profile.unlocked - 1) / 100)
   );
-  const [lesson, setLesson] = useState(Math.min(23, profile.stats.lessons));
   const [size, setSize] = useState(9);
   const [difficulty, setDifficulty] = useState(2);
   const [matchType, setMatchType] = useState<"ai" | "local">("ai");
@@ -136,7 +137,6 @@ export default function Panels(props: PanelProps) {
   const [answer, setAnswer] = useState("");
   const [asking, setAsking] = useState(false);
   const [cloudKey, setCloudKey] = useState(profile.playerKey);
-  const level = getLevel(lesson * 40 + 1);
   const ratingProgress = Math.min(
     100,
     Math.max(0, (profile.rating - 600) / 16)
@@ -312,77 +312,20 @@ export default function Panels(props: PanelProps) {
   if (panel === "academy")
     return (
       <Shell
-        title="弈境书院"
-        eyebrow="从零入门 · 24 课系统研习"
+        title="棋灵成长之旅"
+        eyebrow="零基础 · 12 节互动入门课"
         close={close}
         wide
       >
-        <div className="academy-layout">
-          <aside className="lesson-list">
-            {LESSONS.map((l, i) => (
-              <button
-                key={l[0]}
-                className={lesson === i ? "active" : ""}
-                onClick={() => setLesson(i)}
-              >
-                <span>{String(i + 1).padStart(2, "0")}</span>
-                <div>
-                  <b>{l[0]}</b>
-                  <small>{l[1]}</small>
-                </div>
-                {i < profile.stats.lessons && <Check size={15} />}
-              </button>
-            ))}
-          </aside>
-          <article className="lesson-content">
-            <span className="lesson-number">
-              LESSON {String(lesson + 1).padStart(2, "0")}
-            </span>
-            <h3>{LESSONS[lesson][0]}</h3>
-            <h4>{LESSONS[lesson][1]}</h4>
-            <p>{LESSONS[lesson][2]}</p>
-            <div className="lesson-wisdom">
-              <BookOpen size={20} />
-              <p>{level.lesson}</p>
-            </div>
-            <div className="lesson-example">
-              <span>本课修习目标</span>
-              <b>{level.objective}</b>
-              <p>{level.hint}</p>
-            </div>
-            <div className="panel-actions">
-              <button
-                className="secondary"
-                onClick={() => setLesson(Math.max(0, lesson - 1))}
-              >
-                <ChevronLeft size={16} />
-                上一课
-              </button>
-              <button
-                className="primary"
-                onClick={() => {
-                  props.startLevel(level.id);
-                  const p = {
-                    ...profile,
-                    stats: {
-                      ...profile.stats,
-                      lessons: Math.max(profile.stats.lessons, lesson + 1),
-                    },
-                    daily: {
-                      ...profile.daily,
-                      lessons: profile.daily.lessons + 1,
-                    },
-                  };
-                  props.persist(p);
-                  close();
-                }}
-              >
-                进入实战练习
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </article>
-        </div>
+        <Academy
+          profile={profile}
+          persist={props.persist}
+          sfx={props.sfx}
+          startFirstMatch={() => {
+            close();
+            props.startMatch("ai", 9, 1);
+          }}
+        />
       </Shell>
     );
 
